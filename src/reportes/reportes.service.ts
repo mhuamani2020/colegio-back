@@ -84,4 +84,71 @@ export class ReportesService {
       ultimosAportes,
     };
   }
+
+  async getPorAlumno() {
+    // Obtener todos los alumnos que tienen al menos un aporte (o todos)
+    const alumnos = await this.prisma.alumno.findMany({
+      include: {
+        padre: { select: { id: true, nombre: true, apellido: true } },
+        aportes: {
+          select: {
+            id: true,
+            monto: true,
+            estado: true,
+            fechaAporte: true,
+            conceptoId: true,
+          },
+          orderBy: { fechaAporte: 'desc' },
+        },
+      },
+      orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
+    });
+
+    // Conceptos para monto sugerido
+    const conceptos = await this.prisma.conceptoPago.findMany({
+      where: { activo: true, montoSugerido: { not: null } },
+    });
+    const metaPorAlumno = conceptos.reduce(
+      (sum, c) => sum + Number(c.montoSugerido ?? 0),
+      0,
+    );
+
+    return alumnos.map((alumno) => {
+      const aportesAprobados = alumno.aportes.filter(
+        (a) => a.estado === 'aprobado',
+      );
+      const totalAportado = aportesAprobados.reduce(
+        (sum, a) => sum + Number(a.monto),
+        0,
+      );
+      const ultimoAporte = alumno.aportes[0] ?? null;
+      const cantidadAportes = alumno.aportes.length;
+      const avance =
+        metaPorAlumno > 0
+          ? Math.round((totalAportado / metaPorAlumno) * 100)
+          : 0;
+
+      return {
+        id: alumno.id,
+        nombre: alumno.nombre,
+        apellido: alumno.apellido,
+        grado: alumno.grado,
+        seccion: alumno.seccion,
+        apoderado: alumno.padre
+          ? `${alumno.padre.nombre} ${alumno.padre.apellido}`
+          : null,
+        totalAportado,
+        cantidadAportes,
+        cantidadAprobados: aportesAprobados.length,
+        avance,
+        ultimoAporte: ultimoAporte
+          ? {
+              monto: Number(ultimoAporte.monto),
+              estado: ultimoAporte.estado,
+              fechaAporte: ultimoAporte.fechaAporte,
+            }
+          : null,
+      };
+    });
+  }
 }

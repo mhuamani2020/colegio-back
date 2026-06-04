@@ -11,4 +11,9 @@ export class ReportesController {
   getResumen() {
     return this.reportesService.getResumen();
   }
+
+  @Get('por-alumno')
+  getPorAlumno() {
+    return this.reportesService.getPorAlumno();
+  }
 }
