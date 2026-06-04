@@ -218,4 +218,51 @@ export class ReportesService {
       };
     });
   }
+
+  async exportarPorAlumnoCSV(): Promise<string> {
+    const alumnos = await this.getPorAlumno();
+    const headers = [
+      'Alumno', 'Apellido', 'Apoderado', 'Grado', 'Sección',
+      'Total Aportado', 'Cantidad Aportes', 'Aprobados', 'Avance %',
+    ];
+    const rows = alumnos.map((a) => [
+      this.escapeCSV(a.nombre),
+      this.escapeCSV(a.apellido),
+      this.escapeCSV(a.apoderado ?? ''),
+      this.escapeCSV(a.grado ?? ''),
+      this.escapeCSV(a.seccion ?? ''),
+      a.totalAportado.toFixed(2),
+      String(a.cantidadAportes),
+      String(a.cantidadAprobados),
+      String(a.avance),
+    ]);
+
+    return [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+  }
+
+  async exportarPorConceptoCSV(): Promise<string> {
+    const conceptos = await this.getPorConcepto();
+    const headers = [
+      'Concepto', 'Monto Sugerido', 'Total Recaudado',
+      'Cantidad Aportes', 'Cantidad Aportantes', 'Meta Total', 'Avance %',
+    ];
+    const rows = conceptos.map((c) => [
+      this.escapeCSV(c.concepto),
+      c.montoSugerido.toFixed(2),
+      c.totalRecaudado.toFixed(2),
+      String(c.cantidadAportes),
+      String(c.cantidadAportantes),
+      c.metaTotal.toFixed(2),
+      String(c.avance),
+    ]);
+
+    return [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+  }
+
+  private escapeCSV(value: string): string {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  }
 }
