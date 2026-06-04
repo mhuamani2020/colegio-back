@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAporteDto } from './dto/create-aporte.dto';
 import { QueryAporteDto } from './dto/query-aporte.dto';
+import { ValidarAporteDto } from './dto/validar-aporte.dto';
 
 const APORTE_INCLUDE = {
   concepto: { select: { id: true, nombre: true, montoSugerido: true } },
@@ -67,6 +68,41 @@ export class AportesService {
         concepto: true,
         alumno: true,
       },
+    });
+  }
+
+  async validar(
+    id: number,
+    validadorId: number,
+    dto: ValidarAporteDto,
+  ) {
+    const aporte = await this.prisma.aporte.findUnique({
+      where: { id },
+    });
+
+    if (!aporte) {
+      throw new NotFoundException(`Aporte #${id} no encontrado`);
+    }
+
+    if (aporte.estado !== 'pendiente') {
+      throw new BadRequestException(
+        `El aporte ya fue ${aporte.estado === 'aprobado' ? 'aprobado' : 'rechazado'} anteriormente`,
+      );
+    }
+
+    if (dto.estado === 'rechazado' && !dto.motivoRechazo) {
+      throw new BadRequestException('Debe indicar el motivo de rechazo');
+    }
+
+    return this.prisma.aporte.update({
+      where: { id },
+      data: {
+        estado: dto.estado,
+        motivoRechazo: dto.motivoRechazo,
+        validadoPor: validadorId,
+        validadoEn: new Date(),
+      },
+      include: APORTE_INCLUDE,
     });
   }
 }
