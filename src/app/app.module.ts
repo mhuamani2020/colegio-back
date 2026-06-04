@@ -7,6 +7,7 @@ import { UploadModule } from '../upload/upload.module';
 import { AuthModule } from '../auth/auth.module';
 import { ConceptosModule } from '../conceptos/conceptos.module';
 import { AportesModule } from '../aportes/aportes.module';
+import { ReportesModule } from '../reportes/reportes.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AportesModule } from '../aportes/aportes.module';
     AuthModule,
     ConceptosModule,
     AportesModule,
+    ReportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
