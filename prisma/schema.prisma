@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RolNombre {
+  super_admin
+  presidente
+  tesorero
+  secretaria
+  vocal
+  padre
+}
+
+enum EstadoAporte {
+  pendiente
+  aprobado
+  rechazado
+}
+
+model Rol {
+  id          Int       @id @default(autoincrement())
+  nombre      RolNombre @unique
+  descripcion String?
+  usuarios    Usuario[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  @@map("roles")
+}
+
+model Usuario {
+  id           Int         @id @default(autoincrement())
+  email        String      @unique
+  passwordHash String      @map("password_hash")
+  nombre       String
+  apellido     String
+  telefono     String?
+  rolId        Int         @map("rol_id")
+  rol          Rol         @relation(fields: [rolId], references: [id])
+  activo       Boolean     @default(true)
+  alumnos      Alumno[]
+  aportes      Aporte[]
+  documentos   Documento[]
+  auditorias   AuditoriaLog[]
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  @@map("usuarios")
+}
+
+model Alumno {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  apellido  String
+  grado     String?
+  seccion   String?
+  padreId   Int?     @map("padre_id")
+  padre     Usuario? @relation(fields: [padreId], references: [id])
+  aportes   Aporte[]
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("alumnos")
+}
+
+model ConceptoPago {
+  id            Int           @id @default(autoincrement())
+  nombre        String      @unique
+  descripcion   String?
+  montoSugerido Decimal?      @map("monto_sugerido") @db.Decimal(10, 2)
+  fechaLimite   DateTime?     @map("fecha_limite")
+  activo        Boolean       @default(true)
+  aportes       Aporte[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  @@map("conceptos_pago")
+}
+
+model Aporte {
+  id            Int          @id @default(autoincrement())
+  usuarioId     Int          @map("usuario_id")
+  usuario       Usuario      @relation(fields: [usuarioId], references: [id])
+  alumnoId      Int?         @map("alumno_id")
+  alumno        Alumno?      @relation(fields: [alumnoId], references: [id])
+  conceptoId    Int          @map("concepto_id")
+  concepto      ConceptoPago @relation(fields: [conceptoId], references: [id])
+  monto         Decimal      @db.Decimal(10, 2)
+  descripcion   String?
+  estado        EstadoAporte @default(pendiente)
+  motivoRechazo String?      @map("motivo_rechazo")
+  fechaAporte   DateTime     @default(now()) @map("fecha_aporte")
+  validadoPor   Int?         @map("validado_por")
+  validadoEn    DateTime?    @map("validado_en")
+  comprobantes  Comprobante[]
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  @@index([estado])
+  @@index([usuarioId])
+  @@index([conceptoId])
+  @@index([alumnoId])
+  @@map("aportes")
+}
+
+model Comprobante {
+  id        Int      @id @default(autoincrement())
+  aporteId  Int      @map("aporte_id")
+  aporte    Aporte   @relation(fields: [aporteId], references: [id], onDelete: Cascade)
+  url       String
+  publicId  String   @map("public_id")
+  tipoMime  String   @map("tipo_mime")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("comprobantes")
+}
+
+model CategoriaDocumento {
+  id          Int         @id @default(autoincrement())
+  nombre      String      @unique
+  descripcion String?
+  documentos  Documento[]
+  @@map("categorias_documento")
+}
+
+model Documento {
+  id             Int               @id @default(autoincrement())
+  titulo         String
+  descripcion    String?
+  categoriaId    Int               @map("categoria_id")
+  categoria      CategoriaDocumento @relation(fields: [categoriaId], references: [id])
+  url            String
+  publicId       String            @map("public_id")
+  tipoMime       String            @default("application/pdf") @map("tipo_mime")
+  fechaDocumento DateTime          @default(now()) @map("fecha_documento")
+  subidoPor      Int               @map("subido_por")
+  subidor        Usuario           @relation(fields: [subidoPor], references: [id])
+  createdAt      DateTime          @default(now()) @map("created_at")
+  @@index([categoriaId])
+  @@map("documentos")
+}
+
+model AuditoriaLog {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int?     @map("usuario_id")
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id])
+  accion    String
+  entidad   String?
+  entidadId Int?     @map("entidad_id")
+  detalle   Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([usuarioId])
+  @@index([accion])
+  @@map("auditoria_log")
+}
