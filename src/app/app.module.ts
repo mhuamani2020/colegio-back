@@ -8,6 +8,8 @@ import { AuthModule } from '../auth/auth.module';
 import { ConceptosModule } from '../conceptos/conceptos.module';
 import { AportesModule } from '../aportes/aportes.module';
 import { ReportesModule } from '../reportes/reportes.module';
+import { CategoriasDocumentoModule } from '../categorias-documento/categorias-documento.module';
+import { DocumentosModule } from '../documentos/documentos.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { ReportesModule } from '../reportes/reportes.module';
     ConceptosModule,
     AportesModule,
     ReportesModule,
+    CategoriasDocumentoModule,
+    DocumentosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -63,6 +63,24 @@ async function main() {
   });
   console.log('  ✓ Super Admin creado (admin@promocion.com / Admin123!)');
 
+  // ─── Categorías de Documentos ──────────────────────
+  const categoriasDoc = [
+    { nombre: 'Actas', descripcion: 'Actas de reuniones de la directiva' },
+    { nombre: 'Acuerdos', descripcion: 'Acuerdos y compromisos de la promoción' },
+    { nombre: 'Comunicados', descripcion: 'Comunicados oficiales a los padres' },
+    { nombre: 'Informes', descripcion: 'Informes financieros y de gestión' },
+    { nombre: 'Otros', descripcion: 'Otros documentos de interés' },
+  ];
+
+  for (const cat of categoriasDoc) {
+    await prisma.categoriaDocumento.upsert({
+      where: { nombre: cat.nombre },
+      update: { descripcion: cat.descripcion },
+      create: cat,
+    });
+  }
+  console.log(`  ✓ ${categoriasDoc.length} categorías de documentos creadas`);
+
   console.log('Seed completed successfully!');
 }
 
