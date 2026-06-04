@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { UploadModule } from '../upload/upload.module';
 import { AuthModule } from '../auth/auth.module';
 import { ConceptosModule } from '../conceptos/conceptos.module';
+import { AportesModule } from '../aportes/aportes.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ConceptosModule } from '../conceptos/conceptos.module';
     UploadModule,
     AuthModule,
     ConceptosModule,
+    AportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
