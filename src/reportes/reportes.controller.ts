@@ -16,4 +16,9 @@ export class ReportesController {
   getPorAlumno() {
     return this.reportesService.getPorAlumno();
   }
+
+  @Get('por-concepto')
+  getPorConcepto() {
+    return this.reportesService.getPorConcepto();
+  }
 }

@@ -151,4 +151,71 @@ export class ReportesService {
       };
     });
   }
+
+  async getPorConcepto() {
+    const [conceptos, totalPadres] = await Promise.all([
+      this.prisma.conceptoPago.findMany({
+        where: { activo: true },
+        orderBy: { nombre: 'asc' },
+      }),
+      this.prisma.usuario.count({
+        where: { rol: { nombre: 'padre' }, activo: true },
+      }),
+    ]);
+
+    // Aportes aprobados agrupados por concepto
+    const aportesPorConcepto = await this.prisma.aporte.groupBy({
+      by: ['conceptoId'],
+      where: { estado: 'aprobado' },
+      _sum: { monto: true },
+      _count: { id: true },
+    });
+
+    // Aportantes distintos por concepto
+    const aportantesPorConcepto = await this.prisma.aporte.groupBy({
+      by: ['conceptoId', 'usuarioId'],
+      where: { estado: 'aprobado' },
+    });
+
+    // Contar usuarios únicos por concepto
+    const aportantesCountMap = new Map<number, number>();
+    for (const item of aportantesPorConcepto) {
+      const current = aportantesCountMap.get(item.conceptoId) ?? 0;
+      aportantesCountMap.set(item.conceptoId, current + 1);
+    }
+
+    const aporteMap = new Map(
+      aportesPorConcepto.map((item) => [item.conceptoId, item]),
+    );
+
+    const totalRecaudadoGeneral = aportesPorConcepto.reduce(
+      (sum, item) => sum + Number(item._sum.monto ?? 0),
+      0,
+    );
+
+    return conceptos.map((concepto) => {
+      const data = aporteMap.get(concepto.id);
+      const recaudado = Number(data?._sum.monto ?? 0);
+      const cantidad = data?._count.id ?? 0;
+      const aportantes = aportantesCountMap.get(concepto.id) ?? 0;
+      const montoSugerido = Number(concepto.montoSugerido ?? 0);
+      const metaConcepto = montoSugerido * (totalPadres || 1);
+      const avance =
+        metaConcepto > 0
+          ? Math.round((recaudado / metaConcepto) * 100)
+          : 0;
+
+      return {
+        conceptoId: concepto.id,
+        concepto: concepto.nombre,
+        descripcion: concepto.descripcion,
+        montoSugerido,
+        totalRecaudado: recaudado,
+        cantidadAportes: cantidad,
+        cantidadAportantes: aportantes,
+        metaTotal: metaConcepto,
+        avance,
+      };
+    });
+  }
 }
