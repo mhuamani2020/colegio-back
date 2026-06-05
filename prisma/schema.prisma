@@ -22,6 +22,34 @@ enum EstadoAporte {
   rechazado
 }
 
+enum MetodoPago {
+  transferencia
+  yape
+  plin
+}
+
+enum SolicitudEstado {
+  pendiente
+  aprobado
+  rechazado
+}
+
+model SolicitudAcceso {
+  id            Int             @id @default(autoincrement())
+  nombres       String
+  apellidos     String
+  email         String          @unique
+  telefono      String?
+  alumnoNombre  String?
+  alumnoGrado   String?
+  alumnoSeccion String?
+  estado        SolicitudEstado @default(pendiente)
+  motivoRechazo String?         @map("motivo_rechazo")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  @@map("solicitudes_acceso")
+}
+
 model Rol {
   id          Int       @id @default(autoincrement())
   nombre      RolNombre @unique
@@ -44,9 +72,10 @@ model Usuario {
   alumnos      Alumno[]
   aportes      Aporte[]
   documentos   Documento[]
-  auditorias   AuditoriaLog[]
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+  auditorias    AuditoriaLog[]
+  notificaciones Notificacion[]
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
   @@map("usuarios")
 }
 
@@ -86,6 +115,7 @@ model Aporte {
   concepto      ConceptoPago @relation(fields: [conceptoId], references: [id])
   monto         Decimal      @db.Decimal(10, 2)
   descripcion   String?
+  metodoPago    MetodoPago   @default(transferencia) @map("metodo_pago")
   estado        EstadoAporte @default(pendiente)
   motivoRechazo String?      @map("motivo_rechazo")
   fechaAporte   DateTime     @default(now()) @map("fecha_aporte")
@@ -135,6 +165,22 @@ model Documento {
   createdAt      DateTime          @default(now()) @map("created_at")
   @@index([categoriaId])
   @@map("documentos")
+}
+
+model Notificacion {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int      @map("usuario_id")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  titulo    String
+  mensaje   String
+  tipo      String   // aporte_aprobado, aporte_rechazado, documento_subido, etc.
+  leida     Boolean  @default(false)
+  entidad   String?  // aporte, documento, etc.
+  entidadId Int?     @map("entidad_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([usuarioId])
+  @@index([leida])
+  @@map("notificaciones")
 }
 
 model AuditoriaLog {

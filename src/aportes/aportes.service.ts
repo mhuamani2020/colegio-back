@@ -1,7 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditoriaService } from '../auditoria/auditoria.service';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import { CreateAporteDto } from './dto/create-aporte.dto';
+import { CreateComprobanteDto } from './dto/create-comprobante.dto';
 import { QueryAporteDto } from './dto/query-aporte.dto';
 import { ValidarAporteDto } from './dto/validar-aporte.dto';
 
@@ -16,7 +19,11 @@ const APORTE_INCLUDE = {
 
 @Injectable()
 export class AportesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditoriaService: AuditoriaService,
+    private readonly notificacionesService: NotificacionesService,
+  ) {}
 
   async findAll(
     user: { id: number; rol: string },
@@ -56,17 +63,56 @@ export class AportesService {
   }
 
   async create(usuarioId: number, dto: CreateAporteDto) {
-    return this.prisma.aporte.create({
+    const aporte = await this.prisma.aporte.create({
       data: {
         usuarioId,
         conceptoId: dto.conceptoId,
         monto: dto.monto,
         descripcion: dto.descripcion,
         alumnoId: dto.alumnoId,
+        metodoPago: dto.metodoPago as any,
       },
       include: {
         concepto: true,
         alumno: true,
+      },
+    });
+
+    await this.auditoriaService.log({
+      usuarioId,
+      accion: 'crear_aporte',
+      entidad: 'aporte',
+      entidadId: aporte.id,
+      detalle: { monto: dto.monto, conceptoId: dto.conceptoId, metodoPago: dto.metodoPago },
+    });
+
+    return aporte;
+  }
+
+  async agregarComprobante(
+    aporteId: number,
+    usuarioId: number,
+    dto: CreateComprobanteDto,
+  ) {
+    const aporte = await this.prisma.aporte.findUnique({
+      where: { id: aporteId },
+    });
+
+    if (!aporte) {
+      throw new NotFoundException(`Aporte #${aporteId} no encontrado`);
+    }
+
+    // Only the owner can add comprobantes to their own aportes
+    if (aporte.usuarioId !== usuarioId) {
+      throw new ForbiddenException('No puedes agregar comprobantes a un aporte de otro usuario');
+    }
+
+    return this.prisma.comprobante.create({
+      data: {
+        aporteId,
+        url: dto.url,
+        publicId: dto.publicId,
+        tipoMime: dto.tipoMime,
       },
     });
   }
@@ -94,7 +140,7 @@ export class AportesService {
       throw new BadRequestException('Debe indicar el motivo de rechazo');
     }
 
-    return this.prisma.aporte.update({
+    const result = await this.prisma.aporte.update({
       where: { id },
       data: {
         estado: dto.estado,
@@ -104,5 +150,34 @@ export class AportesService {
       },
       include: APORTE_INCLUDE,
     });
+
+    await this.auditoriaService.log({
+      usuarioId: validadorId,
+      accion: dto.estado === 'aprobado' ? 'aprobar_aporte' : 'rechazar_aporte',
+      entidad: 'aporte',
+      entidadId: id,
+      detalle: { estado: dto.estado, motivoRechazo: dto.motivoRechazo },
+    });
+
+    // Notificar al padre dueño del aporte
+    if (aporte.usuarioId !== validadorId) {
+      const titulo = dto.estado === 'aprobado'
+        ? 'Aporte aprobado ✅'
+        : 'Aporte rechazado ❌';
+      const mensaje = dto.estado === 'aprobado'
+        ? `Tu aporte de S/ ${result.monto} ha sido aprobado.`
+        : `Tu aporte de S/ ${result.monto} fue rechazado.${dto.motivoRechazo ? ` Motivo: ${dto.motivoRechazo}` : ''}`;
+
+      await this.notificacionesService.log({
+        usuarioId: aporte.usuarioId,
+        titulo,
+        mensaje,
+        tipo: dto.estado === 'aprobado' ? 'aporte_aprobado' : 'aporte_rechazado',
+        entidad: 'aporte',
+        entidadId: id,
+      });
+    }
+
+    return result;
   }
 }

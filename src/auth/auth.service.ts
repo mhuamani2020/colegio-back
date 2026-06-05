@@ -2,6 +2,7 @@ import { ConflictException, Injectable, Logger, UnauthorizedException } from '@n
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditoriaService } from '../auditoria/auditoria.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -14,6 +15,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly auditoriaService: AuditoriaService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -36,6 +38,13 @@ export class AuthService {
     }
 
     const token = this.generateToken(user.id, user.email, user.rol.nombre);
+
+    await this.auditoriaService.log({
+      usuarioId: user.id,
+      accion: 'login',
+      entidad: 'usuario',
+      entidadId: user.id,
+    });
 
     return {
       token,
@@ -72,6 +81,13 @@ export class AuthService {
     });
 
     const token = this.generateToken(user.id, user.email, user.rol.nombre);
+
+    await this.auditoriaService.log({
+      usuarioId: user.id,
+      accion: 'registro',
+      entidad: 'usuario',
+      entidadId: user.id,
+    });
 
     return {
       token,
